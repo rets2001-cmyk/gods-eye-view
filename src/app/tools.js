@@ -86,6 +86,21 @@ export function createApplicationTools({
     connect: connectDisplay,
   });
   defer(() => geoFileImport?.destroy());
+  // Auto-import any local layers listed in public/custom-layers/manifest.json (not committed).
+  if (geoFileImport) {
+    setTimeout(async () => {
+      try {
+        const res = await fetch('/custom-layers/manifest.json', { cache: 'no-store' });
+        if (!res.ok) return;
+        const names = await res.json();
+        const files = await Promise.all(names.map(async (n) => {
+          const r = await fetch('/custom-layers/' + encodeURIComponent(n), { cache: 'no-store' });
+          return new File([await r.blob()], n, { type: 'application/geo+json' });
+        }));
+        geoFileImport.importFiles(files);
+      } catch (err) { console.warn('Custom layers not loaded', err); }
+    }, 1500);
+  }
   // DATA ▸ Recent Imagery: the box tool claims the pointer like Draw and the
   // panel lives on the right rail, so both belong to the application
   // lifetime. The tileset lets the layer drape while the globe is hidden.
